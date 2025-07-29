@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobHunt Application Tracker</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+        
+        .button-group {
+            margin: 1.5rem 0;
+        }
+        
+        button { 
+            font-size: 1rem; 
+            padding: 1rem 2rem; 
+            margin: 0.5rem; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        #recordButton { 
+            background-color: #4CAF50; 
+            color: white; 
+        }
+        
+        #recordButton:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        #stopButton { 
+            background-color: #f44336; 
+            color: white; 
+        }
+        
+        #stopButton:hover {
+            background-color: #da190b;
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        #status { 
+            margin-top: 1.5rem; 
+            font-weight: 600;
+            padding: 1rem;
+            border-radius: 8px;
+            min-height: 20px;
+        }
+        
+        .status-ready {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .status-processing {
+            background-color: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .status-success {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .status-error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: #e0e0e0;
+            border-radius: 3px;
+            margin: 1rem 0;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .extracted-data {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            text-align: left;
+            display: none;
+        }
+        
+        .extracted-data h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .data-item {
+            margin: 0.5rem 0;
+            font-weight: 500;
+        }
+        
+        .data-label {
+            color: #666;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ JobHunt Application Tracker</h1>
+        <p>Record your job application details and they'll be automatically added to your tracking sheet!</p>
+        
+        <div class="button-group">
+            <button id="recordButton">🎙️ Start Recording</button>
+            <button id="stopButton" disabled>⏹️ Stop Recording</button>
+        </div>
+        
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        
+        <div id="status" class="status-ready">Ready to record your job application details</div>
+        
+        <div class="extracted-data" id="extractedData">
+            <h3>📋 Extracted Information:</h3>
+            <div class="data-item">
+                <span class="data-label">Company:</span> <span id="companyName"></span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">Resume Version:</span> <span id="resumeVersion"></span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">Platform:</span> <span id="platform"></span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">Status:</span> <span id="status"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const recordButton = document.getElementById('recordButton');
+        const stopButton = document.getElementById('stopButton');
+        const statusDisplay = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const extractedData = document.getElementById('extractedData');
+        
+        let recorder;
+        let audioChunks = [];
+
+        // Update status display with styling
+        function updateStatus(message, type = 'ready') {
+            statusDisplay.textContent = message;
+            statusDisplay.className = `status-${type}`;
+        }
+
+        // Show progress bar with animation
+        function showProgress() {
+            progressBar.style.display = 'block';
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 200);
+            return interval;
+        }
+
+        // Hide progress bar
+        function hideProgress() {
+            progressBar.style.display = 'none';
+            progressFill.style.width = '0%';
+        }
+
+        // Display extracted data
+        function displayExtractedData(data) {
+            document.getElementById('companyName').textContent = data.company_name || 'N/A';
+            document.getElementById('resumeVersion').textContent = data.resume_version || 'N/A';
+            document.getElementById('platform').textContent = data.platform || 'N/A';
+            document.getElementById('status').textContent = data.status || 'applied';
+            extractedData.style.display = 'block';
+        }
+
+        // Request microphone permission when the page loads
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                recorder = new MediaRecorder(stream);
+
+                // Store audio data in chunks
+                recorder.ondataavailable = e => {
+                    audioChunks.push(e.data);
+                };
+
+                // When recording stops, create a Blob and send it
+                recorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    sendData(audioBlob);
+                    audioChunks = []; // Reset chunks
+                };
+
+                updateStatus('Microphone ready. Click "Start Recording" to begin.', 'ready');
+            })
+            .catch(err => {
+                console.error("Error accessing microphone:", err);
+                updateStatus('Error: Could not access microphone. Please check permissions.', 'error');
+            });
+
+        // Start recording when 'Record' is clicked
+        recordButton.addEventListener('click', () => {
+            if (recorder && recorder.state === 'inactive') {
+                recorder.start();
+                recordButton.disabled = true;
+                stopButton.disabled = false;
+                updateStatus('🎙️ Recording... Speak clearly about your job application', 'processing');
+                extractedData.style.display = 'none';
+            }
+        });
+
+        // Stop recording when 'Stop' is clicked
+        stopButton.addEventListener('click', () => {
+            if (recorder && recorder.state === 'recording') {
+                recorder.stop();
+                recordButton.disabled = false;
+                stopButton.disabled = true;
+                updateStatus('⏳ Processing your audio...', 'processing');
+                const progressInterval = showProgress();
+                
+                // Store the interval to clear it later
+                window.progressInterval = progressInterval;
+            }
+        });
+
+        // Send audio Blob to the server endpoint
+        function sendData(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio_data', audioBlob, 'recorded_audio.webm');
+
+            fetch('http://localhost:5000/upload-audio', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Clear progress animation
+                if (window.progressInterval) {
+                    clearInterval(window.progressInterval);
+                }
+                hideProgress();
+                
+                if (data.status === 'success') {
+                    updateStatus('✅ Success! Your job details have been added to the tracking sheet.', 'success');
+                    if (data.extracted_data) {
+                        displayExtractedData(data.extracted_data);
+                    }
+                } else {
+                    updateStatus(`❌ Error: ${data.error}`, 'error');
+                }
+            })
+            .catch((error) => {
+                // Clear progress animation
+                if (window.progressInterval) {
+                    clearInterval(window.progressInterval);
+                }
+                hideProgress();
+                
+                console.error('Error:', error);
+                updateStatus('❌ Upload failed. Please try again.', 'error');
+            });
+        }
+    </script>
+</body>
+</html>
