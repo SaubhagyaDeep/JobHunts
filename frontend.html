@@ -274,8 +274,10 @@
         function sendData(audioBlob) {
             const formData = new FormData();
             formData.append('audio_data', audioBlob, 'recorded_audio.webm');
-
-            fetch('http://localhost:5000/upload-audio', {
+            // const API_ENDPOINT = "localhost:5000/upload-audio"
+            const API_ENDPOINT = "https://yzzo87ypw0.execute-api.ap-south-1.amazonaws.com/upload-audio"
+            
+            fetch(API_ENDPOINT, {
                 method: 'POST',
                 body: formData
             })

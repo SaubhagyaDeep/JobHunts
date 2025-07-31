@@ -204,7 +204,7 @@ def upload_audio():
         if file.filename == '':
             return jsonify({"error": "No selected file"}), 400
 
-        print("📁 Received audio file, starting processing...")
+        print("📁 Received udio file, starting processing...")
         
         # Read audio data into memory
         audio_data = file.read()
@@ -232,6 +232,10 @@ def upload_audio():
         return jsonify({
             "error": f"Processing failed: {str(e)}"
         }), 500
+
+
+# from mangum import Mangum
+# handler = Mangum(app)
 
 if __name__ == '__main__':
     print("🚀 Starting JobHunt Backend...")
