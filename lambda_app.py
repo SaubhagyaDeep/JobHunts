@@ -92,7 +92,14 @@ def extract_job_details(transcript_text):
         response.raise_for_status()
         api_response_data = response.json()
         json_string = api_response_data['candidates'][0]['content']['parts'][0]['text']
-        return json.loads(json_string)
+        extracted_data = json.loads(json_string)
+        
+        # Set default status to "applied" if status is empty or missing
+        if not extracted_data.get("status") or extracted_data.get("status").strip() == "":
+            extracted_data["status"] = "applied"
+            print("📝 Setting default status to 'applied'")
+        
+        return extracted_data
     except Exception as e:
         print(f"Extraction error: {e}")
         raise
