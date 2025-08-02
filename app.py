@@ -10,30 +10,28 @@ import assemblyai as aai
 import tempfile
 import io
 
-# Load environment variables
-load_dotenv()
 
-# Initialize Flask app
+load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# Configure API keys
+
 ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not ASSEMBLYAI_API_KEY:
     raise ValueError("ASSEMBLYAI_API_KEY not found. Make sure it's set in your .env file.")
 
+aai.settings.api_key = ASSEMBLYAI_API_KEY
+
+
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found. Make sure it's set in your .env file.")
 
-# Configure AssemblyAI
-aai.settings.api_key = ASSEMBLYAI_API_KEY
+
 
 def transcribe_audio_in_memory(audio_data):
-    """
-    Transcribes audio data in memory using AssemblyAI without saving to disk.
-    """
+
     try:
         print("🎙️ Transcribing audio with AssemblyAI...")
         
@@ -43,7 +41,6 @@ def transcribe_audio_in_memory(audio_data):
             temp_file_path = temp_file.name
         
         try:
-            # Transcribe the temporary file
             transcriber = aai.Transcriber()
             transcript = transcriber.transcribe(temp_file_path)
             
@@ -53,7 +50,6 @@ def transcribe_audio_in_memory(audio_data):
             return transcript.text
             
         finally:
-            # Clean up the temporary file
             os.unlink(temp_file_path)
             
     except Exception as e:
@@ -99,12 +95,11 @@ def extract_job_details(transcript_text):
 
     for attempt in range(3):  # Try up to 3 times
         try:
-            response = requests.post(url, headers=headers, json=data, timeout=20) # Add a timeout
+            response = requests.post(url, headers=headers, json=data, timeout=20)
             response.raise_for_status() # This will raise an error for 4xx or 5xx status codes
 
 
             api_response_data = response.json()
-            # Validate response structure
             if (
                 "candidates" not in api_response_data or
                 not api_response_data["candidates"] or
@@ -122,13 +117,12 @@ def extract_job_details(transcript_text):
                 print(f"JSON decode error: {jde}")
                 raise ValueError(f"Failed to parse JSON from Gemini response: {json_string}")
 
-            # Set default values for missing fields
+
             extracted_data["company_name"] = extracted_data.get("company_name", "N/A")
             extracted_data["job_role"] = extracted_data.get("job_role", "N/A")
             extracted_data["resume_version"] = extracted_data.get("resume_version", "N/A")
             extracted_data["platform"] = extracted_data.get("platform", "N/A")
             
-            # Set default status to "applied" if status is empty or missing
             if not extracted_data.get("status") or extracted_data.get("status").strip() == "":
                 extracted_data["status"] = "applied"
                 print("📝 Setting default status to 'applied'")
@@ -162,18 +156,16 @@ def extract_job_details(transcript_text):
 
 
 def add_row_to_sheet(data):
-    """
-    Appends a new row to Google Sheets with the job application details.
-    """
+    
     try:
         print("📝 Adding row to Google Sheets...")
         
-        # Authenticate with Google Sheets
+
         gc = gspread.service_account(filename='credentials.json')
         spreadsheet = gc.open("JobsHunt-sheet")
         worksheet = spreadsheet.get_worksheet(0)
 
-        # Prepare row data
+
         row = [
             str(date.today()),
             data.get("company_name", "N/A"),
@@ -193,18 +185,12 @@ def add_row_to_sheet(data):
 
 @app.route('/', methods=['GET'])
 def index():
-    """
-    Simple index route to verify backend is running.
-    """
     return jsonify({"message": "JobHunt Backend is running."}), 200
 
 @app.route('/upload-audio', methods=['POST'])
 def upload_audio():
-    """
-    Complete workflow: Receive audio → Transcribe → Extract → Add to Sheets
-    """
     try:
-        # Input validation
+
         if 'audio_data' not in request.files:
             return jsonify({"error": "No audio file provided"}), 400
 
@@ -212,7 +198,7 @@ def upload_audio():
         if file.filename == '':
             return jsonify({"error": "No file selected"}), 400
         
-        # Validate file type
+
         allowed_extensions = {'.webm', '.mp3', '.wav', '.m4a'}
         file_extension = os.path.splitext(file.filename)[1].lower()
         if file_extension not in allowed_extensions:
@@ -227,22 +213,17 @@ def upload_audio():
             return jsonify({"error": "File too large. Maximum size is 10MB."}), 400
 
         print("📁 Received audio file, starting processing...")
-        
-        # Read audio data into memory
-        audio_data = file.read()
-        
-        # Step 1: Transcribe audio in memory
+        audio_data = file.read()        
+
         transcript_text = transcribe_audio_in_memory(audio_data)
         print(f"✅ Transcription complete: {len(transcript_text)} characters")
         
-        # Step 2: Extract job details from transcript
         job_details = extract_job_details(transcript_text)
         print(f"✅ Extraction complete: {job_details}")
         
-        # Step 3: Add to Google Sheets
         add_row_to_sheet(job_details)
         
-        # Return success response
+
         return jsonify({
             "status": "success",
             "message": "Audio processed and job details added to sheet successfully!",
@@ -256,8 +237,7 @@ def upload_audio():
         }), 500
 
 
-# from mangum import Mangum
-# handler = Mangum(app)
+
 
 if __name__ == '__main__':
     print("🚀 Starting JobHunt Backend...")
