@@ -77,7 +77,7 @@ def extract_job_details(transcript_text):
 
     prompt = (
         "You are an intelligent assistant that extracts job application details from a text transcript and provides the output in a clean JSON format. "
-        "Extract the following four fields: company_name, resume_version, platform, and status.\n\n"
+        "Extract the following four fields: company_name, job_role, resume_version, platform, and status.\n\n"
         f"Here is the transcript:\n\"{transcript_text}\"\n\n"
         "Return only valid JSON with these exact field names: company_name, resume_version, job_role platform, status"
     )
@@ -102,7 +102,7 @@ def extract_job_details(transcript_text):
             response = requests.post(url, headers=headers, json=data, timeout=20) # Add a timeout
             response.raise_for_status() # This will raise an error for 4xx or 5xx status codes
 
-            # ... (rest of your success logic is the same) ...
+
             api_response_data = response.json()
             # Validate response structure
             if (
@@ -122,10 +122,18 @@ def extract_job_details(transcript_text):
                 print(f"JSON decode error: {jde}")
                 raise ValueError(f"Failed to parse JSON from Gemini response: {json_string}")
 
-            # # Check for required fields
-            # required_fields = ["company_name", "resume_version", "platform", "status"]
-            # if not all(field in extracted_data for field in required_fields):
-            #     raise ValueError(f"Missing required fields in extracted data: {extracted_data}")
+            # Set default values for missing fields
+            extracted_data["company_name"] = extracted_data.get("company_name", "N/A")
+            extracted_data["job_role"] = extracted_data.get("job_role", "N/A")
+            extracted_data["resume_version"] = extracted_data.get("resume_version", "N/A")
+            extracted_data["platform"] = extracted_data.get("platform", "N/A")
+            
+            # Set default status to "applied" if status is empty or missing
+            if not extracted_data.get("status") or extracted_data.get("status").strip() == "":
+                extracted_data["status"] = "applied"
+                print("📝 Setting default status to 'applied'")
+            else:
+                extracted_data["status"] = extracted_data.get("status", "applied")
 
             return extracted_data
 
@@ -135,18 +143,18 @@ def extract_job_details(transcript_text):
                 print(f"⚠️ Server error ({status_code}), attempt {attempt + 1} of 3. Retrying in {2 ** attempt} seconds...")
                 time.sleep(2 ** attempt)
             else:
-                print(f"Client error occurred: {http_err}")
-                raise
+                print("Client error occurred")
+                raise Exception("API request failed")
         except (requests.exceptions.RequestException, ValueError) as e:
-            print(f"Error during Gemini API request or response parsing: {e}")
+            print("Error during API request or response parsing")
             if attempt < 2:
                 print(f"Retrying in {2 ** attempt} seconds...")
                 time.sleep(2 ** attempt)
             else:
-                raise
+                raise Exception("API request failed")
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
-            raise
+            print("An unexpected error occurred")
+            raise Exception("API request failed")
 
     # If all retries fail, raise an exception
     raise Exception("API request failed after 3 attempts.")
@@ -168,10 +176,10 @@ def add_row_to_sheet(data):
         # Prepare row data
         row = [
             str(date.today()),
-            data.get("company_name", ""),
-            data.get("job_role", ""),
-            data.get("resume_version", ""),
-            data.get("platform", ""),
+            data.get("company_name", "N/A"),
+            data.get("job_role", "N/A"),
+            data.get("resume_version", "N/A"),
+            data.get("platform", "N/A"),
             data.get("status", "applied")
         ]
 
@@ -180,8 +188,8 @@ def add_row_to_sheet(data):
         return True
         
     except Exception as e:
-        print(f"Google Sheets error: {e}")
-        raise
+        print("Google Sheets error occurred")
+        raise Exception("Failed to save data")
 
 @app.route('/', methods=['GET'])
 def index():
@@ -196,15 +204,29 @@ def upload_audio():
     Complete workflow: Receive audio → Transcribe → Extract → Add to Sheets
     """
     try:
-        # Check if audio file is in request
+        # Input validation
         if 'audio_data' not in request.files:
-            return jsonify({"error": "No audio file part"}), 400
+            return jsonify({"error": "No audio file provided"}), 400
 
         file = request.files['audio_data']
         if file.filename == '':
-            return jsonify({"error": "No selected file"}), 400
+            return jsonify({"error": "No file selected"}), 400
+        
+        # Validate file type
+        allowed_extensions = {'.webm', '.mp3', '.wav', '.m4a'}
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        if file_extension not in allowed_extensions:
+            return jsonify({"error": "Invalid file type. Please upload an audio file."}), 400
+        
+        # Validate file size (max 10MB)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > 10 * 1024 * 1024:  # 10MB limit
+            return jsonify({"error": "File too large. Maximum size is 10MB."}), 400
 
-        print("📁 Received udio file, starting processing...")
+        print("📁 Received audio file, starting processing...")
         
         # Read audio data into memory
         audio_data = file.read()
@@ -228,9 +250,9 @@ def upload_audio():
         }), 200
         
     except Exception as e:
-        print(f"❌ Error in upload_audio: {e}")
+        print("❌ Error in upload_audio")
         return jsonify({
-            "error": f"Processing failed: {str(e)}"
+            "error": "Processing failed. Please try again."
         }), 500
 
 
@@ -242,4 +264,4 @@ if __name__ == '__main__':
     print("📋 Available endpoints:")
     print("   - GET  / : Health check")
     print("   - POST /upload-audio : Process audio and add to sheets")
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    app.run(debug=False, host='0.0.0.0', port=5000) 

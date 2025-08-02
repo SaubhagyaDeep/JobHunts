@@ -1,4 +1,3 @@
-# MODIFICATION: Imports for boto3 (AWS SDK) and mangum (Lambda adapter) are added.
 import os
 import json
 import tempfile
@@ -14,7 +13,7 @@ from mangum import Mangum
 from asgiref.wsgi import WsgiToAsgi
 
 
-# --- AWS & SECRET CONFIGURATION (MODIFIED FOR LAMBDA) ---
+
 
 # This helper function fetches secrets from AWS SSM Parameter Store
 def get_secret_from_ssm(parameter_name):
@@ -25,11 +24,10 @@ def get_secret_from_ssm(parameter_name):
         response = ssm_client.get_parameter(Name=parameter_name, WithDecryption=True)
         return response['Parameter']['Value']
     except Exception as e:
-        print(f"❌ Error retrieving secret {parameter_name} from SSM: {e}")
-        raise
+        print(f"❌ Error retrieving secret {parameter_name} from SSM")
+        raise Exception("Failed to retrieve configuration")
 
-# MODIFICATION: Secrets are now fetched from AWS during the Lambda cold start.
-# The names of the parameters are passed in via Lambda Environment Variables.
+
 ASSEMBLYAI_API_KEY = get_secret_from_ssm(os.environ['ASSEMBLYAI_API_KEY_SSM_NAME'])
 GEMINI_API_KEY = get_secret_from_ssm(os.environ['GEMINI_API_KEY_SSM_NAME'])
 GCP_CREDENTIALS_JSON_STRING = get_secret_from_ssm(os.environ['GCP_CREDENTIALS_SSM_NAME'])
@@ -42,14 +40,14 @@ gcp_creds_dict = json.loads(GCP_CREDENTIALS_JSON_STRING)
 gc = gspread.service_account_from_dict(gcp_creds_dict)
 spreadsheet = gc.open("JobsHunt-sheet")
 
-# --- FLASK APP INITIALIZATION ---
+
 app = Flask(__name__)
 CORS(app)
 asgi_app = WsgiToAsgi(app)
 
 
 
-# --- CORE FUNCTIONS (Largely unchanged, but see 'add_row_to_sheet') ---
+
 
 def transcribe_audio_in_memory(audio_data):
     """Transcribes audio data using a temporary file, compatible with Lambda's /tmp directory."""
@@ -64,26 +62,25 @@ def transcribe_audio_in_memory(audio_data):
             transcriber = aai.Transcriber()
             transcript = transcriber.transcribe(temp_file_path)
             if transcript.status == aai.TranscriptStatus.error:
-                raise Exception(f"Transcription failed: {transcript.error}")
+                raise Exception("Transcription failed")
             return transcript.text
         finally:
-            os.unlink(temp_file_path) # Clean up the temp file
+            os.unlink(temp_file_path)
     except Exception as e:
-        print(f"Transcription error: {e}")
-        raise
+        print("Transcription error occurred")
+        raise Exception("Audio transcription failed")
 
 def extract_job_details(transcript_text):
-    """Uses Google Gemini API to extract structured job details."""
-    # This function's internal logic is fine for Lambda.
-    # It uses the GEMINI_API_KEY fetched during startup.
+    
     print("🤖 Extracting job details with Gemini...")
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     headers = {'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY}
     prompt = (
         "You are an intelligent assistant that extracts job application details from a text transcript and provides the output in a clean JSON format. "
-        "Extract the following fields: company_name, resume_version, platform, and status.\n\n"
+        "Extract the following fields: company_name, job_role, resume_version, platform, and status.\n\n"
         f"Here is the transcript:\n\"{transcript_text}\"\n\n"
-        "Return only valid JSON."
+        "Return only valid JSON with these exact field names: company_name, job_role,resume_version, platform, status"
+
     )
     data = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"response_mime_type": "application/json"}}
 
@@ -94,15 +91,21 @@ def extract_job_details(transcript_text):
         json_string = api_response_data['candidates'][0]['content']['parts'][0]['text']
         extracted_data = json.loads(json_string)
         
-        # Set default status to "applied" if status is empty or missing
+
+        extracted_data["company_name"] = extracted_data.get("company_name", "N/A")
+        extracted_data["job_role"] = extracted_data.get("job_role", "N/A")
+        extracted_data["resume_version"] = extracted_data.get("resume_version", "N/A")
+        extracted_data["platform"] = extracted_data.get("platform", "N/A")
         if not extracted_data.get("status") or extracted_data.get("status").strip() == "":
             extracted_data["status"] = "applied"
             print("📝 Setting default status to 'applied'")
+        else:
+            extracted_data["status"] = extracted_data.get("status", "applied")
         
         return extracted_data
     except Exception as e:
-        print(f"Extraction error: {e}")
-        raise
+        print("Extraction error occurred")
+        raise Exception("Failed to extract job details")
 
 def add_row_to_sheet(data):
     """MODIFICATION: Appends a row using the pre-authorized Google Sheets client."""
@@ -111,32 +114,49 @@ def add_row_to_sheet(data):
         worksheet = spreadsheet.get_worksheet(0)
         row = [
             str(date.today()),
-            data.get("company_name", ""),
-            data.get("job_role", ""),
-            data.get("resume_version", ""),
-            data.get("platform", ""),
+            data.get("company_name", "N/A"),
+            data.get("job_role", "N/A"),
+            data.get("resume_version", "N/A"),
+            data.get("platform", "N/A"),
             data.get("status", "applied")
         ]
         worksheet.append_row(row)
         print("✅ Row added to Google Sheets successfully!")
         return True
     except Exception as e:
-        print(f"Google Sheets error: {e}")
-        raise
+        print("Google Sheets error occurred")
+        raise Exception("Failed to save data")
 
-# --- FLASK ROUTES (Unchanged) ---
 
-@app.route('/', methods=['GET'])
-def index():
-    return jsonify({"message": "JobHunt Backend is running."})
+
+# @app.route('/', methods=['GET'])
+# def index():
+#     return jsonify({"message": "JobHunt Backend is running."})
 
 @app.route('/upload-audio', methods=['POST'])
 def upload_audio():
-    """Complete workflow endpoint."""
     try:
-        if 'audio_data' not in request.files: return jsonify({"error": "No audio file part"}), 400
+        # Input validation
+        if 'audio_data' not in request.files: 
+            return jsonify({"error": "No audio file provided"}), 400
+        
         file = request.files['audio_data']
-        if file.filename == '': return jsonify({"error": "No selected file"}), 400
+        if file.filename == '': 
+            return jsonify({"error": "No file selected"}), 400
+        
+        # Validate file type
+        allowed_extensions = {'.webm', '.mp3', '.wav', '.m4a'}
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        if file_extension not in allowed_extensions:
+            return jsonify({"error": "Invalid file type. Please upload an audio file."}), 400
+        
+        # Validate file size (max 10MB)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > 10 * 1024 * 1024:  # 10MB limit
+            return jsonify({"error": "File too large. Maximum size is 10MB."}), 400
 
         print("📁 Received audio file, starting processing...")
         audio_data = file.read()
@@ -155,8 +175,8 @@ def upload_audio():
             "extracted_data": job_details
         }), 200
     except Exception as e:
-        print(f"❌ Error in upload_audio: {e}")
-        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
+        print("❌ Error in upload_audio")
+        return jsonify({"error": "Processing failed. Please try again."}), 500
 
 
 handler = Mangum(asgi_app)

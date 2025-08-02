@@ -4,150 +4,254 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JobHunt Application Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 20px;
+            color: #e2e8f0;
+            line-height: 1.6;
         }
         
         .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            text-align: center;
-            max-width: 500px;
+            background: #2d3748;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            padding: 3rem;
+            max-width: 600px;
             width: 100%;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #4a5568;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
         }
         
         h1 {
-            color: #333;
-            margin-bottom: 1.5rem;
-            font-size: 2rem;
+            color: #f7fafc;
+            margin-bottom: 0.5rem;
+            font-size: 2.25rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: -0.025em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #a0aec0;
+            margin-bottom: 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 400;
         }
         
         .button-group {
-            margin: 1.5rem 0;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin: 2rem 0;
+            flex-wrap: wrap;
         }
         
         button { 
-            font-size: 1rem; 
-            padding: 1rem 2rem; 
-            margin: 0.5rem; 
-            border: none; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            transition: all 0.3s ease;
+            font-family: inherit;
+            font-size: 0.95rem; 
             font-weight: 600;
+            padding: 0.875rem 1.75rem; 
+            border: none; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            min-width: 140px;
+            letter-spacing: 0.025em;
         }
         
         #recordButton { 
-            background-color: #4CAF50; 
-            color: white; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         
         #recordButton:hover {
-            background-color: #45a049;
             transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
         
         #stopButton { 
-            background-color: #f44336; 
-            color: white; 
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
         }
         
         #stopButton:hover {
-            background-color: #da190b;
             transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(245, 101, 101, 0.4);
         }
         
         button:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none !important;
+            box-shadow: none !important;
         }
         
         #status { 
-            margin-top: 1.5rem; 
-            font-weight: 600;
-            padding: 1rem;
-            border-radius: 8px;
+            margin: 2rem 0;
+            font-weight: 500;
+            padding: 1.25rem;
+            border-radius: 12px;
             min-height: 20px;
+            text-align: center;
+            font-size: 0.95rem;
+            border: 1px solid transparent;
         }
         
         .status-ready {
-            background-color: #e8f5e8;
-            color: #2e7d32;
+            background-color: #1a202c;
+            color: #9ae6b4;
+            border-color: #38a169;
         }
         
         .status-processing {
-            background-color: #fff3e0;
-            color: #f57c00;
+            background-color: #1a202c;
+            color: #fbd38d;
+            border-color: #d69e2e;
         }
         
         .status-success {
-            background-color: #e8f5e8;
-            color: #2e7d32;
+            background-color: #1a202c;
+            color: #9ae6b4;
+            border-color: #38a169;
         }
         
         .status-error {
-            background-color: #ffebee;
-            color: #c62828;
+            background-color: #1a202c;
+            color: #fc8181;
+            border-color: #e53e3e;
         }
         
         .progress-bar {
             width: 100%;
-            height: 6px;
-            background-color: #e0e0e0;
-            border-radius: 3px;
-            margin: 1rem 0;
+            height: 8px;
+            background-color: #4a5568;
+            border-radius: 4px;
+            margin: 1.5rem 0;
             overflow: hidden;
             display: none;
         }
         
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #4CAF50, #45a049);
+            background: linear-gradient(90deg, #667eea, #764ba2);
             width: 0%;
             transition: width 0.3s ease;
+            border-radius: 4px;
         }
         
         .extracted-data {
-            margin-top: 1rem;
-            padding: 1rem;
-            background-color: #f5f5f5;
-            border-radius: 8px;
-            text-align: left;
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            border-radius: 12px;
+            border: 1px solid #4a5568;
             display: none;
         }
         
         .extracted-data h3 {
-            margin-top: 0;
-            color: #333;
+            margin: 0 0 1.25rem 0;
+            color: #f7fafc;
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
         }
         
         .data-item {
-            margin: 0.5rem 0;
-            font-weight: 500;
+            background: #4a5568;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #718096;
+            transition: all 0.2s ease;
+        }
+        
+        .data-item:hover {
+            border-color: #a0aec0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
         
         .data-label {
-            color: #666;
+            color: #a0aec0;
             font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        
+        .data-value {
+            color: #f7fafc;
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 2rem;
+                margin: 1rem;
+            }
+            
+            h1 {
+                font-size: 1.875rem;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 100%;
+                max-width: 200px;
+            }
+            
+            .data-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎙️ JobHunt Application Tracker</h1>
-        <p>Record your job application details and they'll be automatically added to your tracking sheet!</p>
+        <h1>JobHunt Application Tracker</h1>
+        <p class="subtitle">Record your job application details and they'll be automatically added to your tracking sheet</p>
         
         <div class="button-group">
             <button id="recordButton">🎙️ Start Recording</button>
@@ -161,15 +265,24 @@
         <div id="status" class="status-ready">Ready to record your job application details</div>
         
         <div class="extracted-data" id="extractedData">
-            <h3>📋 Extracted Information:</h3>
-            <div class="data-item">
-                <span class="data-label">Company:</span> <span id="companyName"></span>
-            </div>
-            <div class="data-item">
-                <span class="data-label">Resume Version:</span> <span id="resumeVersion"></span>
-            </div>
-            <div class="data-item">
-                <span class="data-label">Platform:</span> <span id="platform"></span>
+            <h3>📋 Extracted Information</h3>
+            <div class="data-grid">
+                <div class="data-item">
+                    <span class="data-label">Company Name</span>
+                    <div class="data-value" id="companyName"></div>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Job Role</span>
+                    <div class="data-value" id="jobRole"></div>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Platform</span>
+                    <div class="data-value" id="platform"></div>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Resume Version</span>
+                    <div class="data-value" id="resumeVersion"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -212,8 +325,9 @@
         // Display extracted data
         function displayExtractedData(data) {
             document.getElementById('companyName').textContent = data.company_name || 'N/A';
-            document.getElementById('resumeVersion').textContent = data.resume_version || 'N/A';
+            document.getElementById('jobRole').textContent = data.job_role || 'N/A';
             document.getElementById('platform').textContent = data.platform || 'N/A';
+            document.getElementById('resumeVersion').textContent = data.resume_version || 'N/A';
             
             extractedData.style.display = 'block';
         }
@@ -271,8 +385,7 @@
         function sendData(audioBlob) {
             const formData = new FormData();
             formData.append('audio_data', audioBlob, 'recorded_audio.webm');
-             const API_ENDPOINT = "localhost:5000/upload-audio"
-                         
+             const API_ENDPOINT = "http://localhost:5000/upload-audio"                         
             fetch(API_ENDPOINT, {
                 method: 'POST',
                 body: formData
